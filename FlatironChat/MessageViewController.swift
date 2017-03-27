@@ -19,13 +19,13 @@ class MessageViewController: JSQMessagesViewController  {
     
     
     
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setUpView()
         
         getMessages()
-        
+        navigationItem.title = channelId
         
     }
     
@@ -34,22 +34,58 @@ class MessageViewController: JSQMessagesViewController  {
     
     func getMessages() {
         
-    }
+        self.messages.removeAll()
+        
+        FIRDatabase.database().reference().child("messages").child(channelId).observe(.childAdded, with: {snapshot in
+            
+            
+            let channelName = snapshot.key
+            print("The channel name is", channelName)
+            
+            if let channelDict = snapshot.value as? [String: Any] {
+                print("channel Dic is ", channelDict)
+            
+                guard let messageContent = channelDict["content"] as? String else {return}
+                guard let senderID = channelDict["from"] as? String else {return}
+                
+            
+                if let newMessage = JSQMessage(senderId: senderID, displayName: senderID, text: messageContent) {
+                    self.messages.append(newMessage) }
+            }
+            self.collectionView.reloadData()
+            
+        }
+            
+        )}
     
-
     
     
-
+    
+    
+    
+    
+    
     override func didPressSend(_ button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: Date!) {
         
+        
+        
+        
+        let preferences = UserDefaults.standard
+        guard let name = preferences.string(forKey: "screenName") else { return }
+        FIRDatabase.database().reference().child("channels").child(channelId).child("lastMessage").setValue(text)
+        FIRDatabase.database().reference().child("messages").child(channelId).childByAutoId().setValue(["content": text, "from":name])
+        
+FIRDatabase.database().reference().child("users").child(name).child("channels").setValue([channelId: true])
+        FIRDatabase.database().reference().child("channels").child(channelId).child("participants").setValue([name: true])
         
         self.finishSendingMessage(animated: true)
     }
     
     
-
+    
+    
 }
-//MARK: - CollectionView 
+//MARK: - CollectionView
 
 
 extension MessageViewController {
@@ -116,6 +152,5 @@ extension MessageViewController {
     }
     
     override func didPressAccessoryButton(_ sender: UIButton!) {
-        
     }
 }
